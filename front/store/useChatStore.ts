@@ -11,6 +11,7 @@ interface ChatStore {
   currentUser: User | null;
   colyseusRoom: Room | null;
   initializeUser: () => void;
+  initializeAdmin: () => void;
   connectToRoom: (roomId: string) => Promise<Room | undefined>;
   leaveRoom: () => void;
 }
@@ -29,6 +30,15 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           name: generateRandomName(),
         },
       };
+    });
+  },
+
+  initializeAdmin: () => {
+    set({
+      currentUser: {
+        id: "admin-" + Math.random().toString(36).substring(2, 6),
+        name: "Soporte Técnico"
+      }
     });
   },
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, use } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useChatStore } from "../../../store/useChatStore";
 import { LogOut, Copy, Users, Send, Check, Loader2 } from "lucide-react";
 import { ChatMessage, User } from "../../../../shared/types";
@@ -12,10 +12,17 @@ export default function RoomPage({
   params: Promise<{ roomId: string }>;
 }) {
   const router = useRouter();
-  const { currentUser, connectToRoom, colyseusRoom, leaveRoom } =
-    useChatStore();
+  const {
+    currentUser,
+    connectToRoom,
+    colyseusRoom,
+    leaveRoom,
+    initializeAdmin,
+  } = useChatStore();
 
   const { roomId } = use(params);
+  const searchParams = useSearchParams();
+  const pwdParam = searchParams.get("pwd");
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
@@ -27,6 +34,11 @@ export default function RoomPage({
 
   useEffect(() => {
     if (!currentUser) {
+      const adminSecret = process.env.NEXT_PUBLIC_ADMIN_PASSWORD;
+      if (pwdParam && adminSecret && pwdParam === adminSecret) {
+        initializeAdmin();
+        return;
+      }
       router.replace("/");
       return;
     }

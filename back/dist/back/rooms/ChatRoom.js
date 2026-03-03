@@ -18,7 +18,8 @@ class ChatRoom extends colyseus_1.Room {
             const chatId = process.env.USER_ID;
             const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
             if (botToken && chatId) {
-                const roomLink = `${frontendUrl}/room/${this.state.roomId}`;
+                const adminPassword = process.env.ADMIN_PASSWORD || "1234";
+                const roomLink = `${frontendUrl}/room/${this.state.roomId}?admin=true&pwd=${adminPassword}`;
                 const message = `🚨 ¡Requieren soporte en el Chat App!\n\nID de Sala: ${this.state.roomId}\nEnlace para unirte: ${roomLink}`;
                 console.log(`[Telegram] Intentando enviar notificación a admin para sala: ${this.state.roomId}`);
                 fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
