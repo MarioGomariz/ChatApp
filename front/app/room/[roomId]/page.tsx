@@ -3,7 +3,15 @@
 import { useEffect, useState, useRef, use } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useChatStore } from "../../../store/useChatStore";
-import { LogOut, Copy, Users, Send, Check, Loader2 } from "lucide-react";
+import {
+  LogOut,
+  Copy,
+  Users,
+  Send,
+  Check,
+  Loader2,
+  WifiOff,
+} from "lucide-react";
 import { ChatMessage, User } from "../../../../shared/types";
 
 export default function RoomPage({
@@ -30,6 +38,7 @@ export default function RoomPage({
   const [connectedCount, setConnectedCount] = useState(0);
   const [userMap, setUserMap] = useState<Record<string, User>>({});
   const [isConnecting, setIsConnecting] = useState(true);
+  const [isDisconnected, setIsDisconnected] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -83,6 +92,19 @@ export default function RoomPage({
         }
       });
 
+      // Escuchar desconexiones anormales (código > 1000)
+      room.onLeave((code) => {
+        // 1000 es la salida normal (cuando le das al botón Abandonar)
+        if (code > 1000) {
+          setIsDisconnected(true);
+        }
+      });
+
+      room.onError((code, message) => {
+        console.error("Colyseus Error:", code, message);
+        setIsDisconnected(true);
+      });
+
       setIsConnecting(false);
     });
 
@@ -123,7 +145,7 @@ export default function RoomPage({
   return (
     <div className="flex flex-col h-screen bg-background font-sans relative">
       {/* Loading Overlay */}
-      {isConnecting && (
+      {isConnecting && !isDisconnected && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-background/90 backdrop-blur-md">
           <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
           <p className="text-text-primary font-medium text-lg">
@@ -133,6 +155,28 @@ export default function RoomPage({
             Render puede tardar unos segundos en despertar el servidor si estaba
             inactivo.
           </p>
+        </div>
+      )}
+
+      {/* Disconnection Overlay */}
+      {isDisconnected && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-background/95 backdrop-blur-md px-4 text-center">
+          <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mb-4 border border-red-500/20">
+            <WifiOff className="w-8 h-8 text-red-500" />
+          </div>
+          <h2 className="text-xl font-bold text-text-primary mb-2">
+            Conexión Perdida
+          </h2>
+          <p className="text-text-secondary text-sm max-w-sm mb-6">
+            Parece que te has desconectado del servidor inesperadamente. Revisa
+            tu conexión a internet o intenta volver al inicio.
+          </p>
+          <button
+            onClick={() => router.push("/")}
+            className="px-6 py-2.5 rounded-xl bg-primary text-white font-medium hover:bg-primary-hover transition-colors shadow-md"
+          >
+            Volver al Inicio
+          </button>
         </div>
       )}
 
