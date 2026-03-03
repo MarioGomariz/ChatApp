@@ -20,6 +20,7 @@ class ChatRoom extends colyseus_1.Room {
             if (botToken && chatId) {
                 const roomLink = `${frontendUrl}/room/${this.state.roomId}`;
                 const message = `🚨 ¡Requieren soporte en el Chat App!\n\nID de Sala: ${this.state.roomId}\nEnlace para unirte: ${roomLink}`;
+                console.log(`[Telegram] Intentando enviar notificación a admin para sala: ${this.state.roomId}`);
                 fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
                     method: "POST",
                     headers: {
@@ -30,7 +31,10 @@ class ChatRoom extends colyseus_1.Room {
                         text: message,
                         disable_web_page_preview: true,
                     }),
-                }).catch((err) => console.error("Error enviando Telegram:", err));
+                })
+                    .then(res => res.json())
+                    .then(data => console.log("[Telegram] Respuesta del servidor de Telegram:", data))
+                    .catch((err) => console.error("[Telegram] Error en la petición a Telegram:", err));
             }
         }
         // Cuando un cliente envíe un mensaje tipo "chat-message"
@@ -43,8 +47,11 @@ class ChatRoom extends colyseus_1.Room {
             newMessage.userId = user.id;
             newMessage.text = data.text;
             newMessage.timestamp = Date.now();
-            // Lo guardamos en el estado 
+            // Lo guardamos en el estado temporal (Max 50)
             this.state.messages.push(newMessage);
+            if (this.state.messages.length > 50) {
+                this.state.messages.shift();
+            }
             // Emitimos el mensaje a todos (incluyendo sender)
             const broadcastMsg = {
                 id: newMessage.id,
@@ -55,6 +62,25 @@ class ChatRoom extends colyseus_1.Room {
             this.broadcast("new-message", broadcastMsg);
         });
     }
+    // Utilidad interna para enviar y registrar mensajes de sistema
+    broadcastSystemMessage(text) {
+        const sysMessage = new ChatState_1.ChatMessageState();
+        sysMessage.id = Math.random().toString(36).substring(2, 9);
+        sysMessage.userId = "system";
+        sysMessage.text = text;
+        sysMessage.timestamp = Date.now();
+        this.state.messages.push(sysMessage);
+        if (this.state.messages.length > 50) {
+            this.state.messages.shift();
+        }
+        const broadcastMsg = {
+            id: sysMessage.id,
+            userId: sysMessage.userId,
+            text: sysMessage.text,
+            timestamp: sysMessage.timestamp
+        };
+        this.broadcast("new-message", broadcastMsg);
+    }
     onJoin(client, options) {
         console.log(client.sessionId, "joined!");
         // Creamos y guardamos el usuario en el mapa (clave: sessionId)
@@ -62,9 +88,24 @@ class ChatRoom extends colyseus_1.Room {
         newUser.id = options.id; // el ID que viene de Zustand
         newUser.name = options.name; // el Nombre ("Invitado x")
         this.state.users.set(client.sessionId, newUser);
+        // Enviar historial de la memoria temporal solo a este cliente que recién entra
+        const history = this.state.messages.map(m => ({
+            id: m.id,
+            userId: m.userId,
+            text: m.text,
+            timestamp: m.timestamp
+        }));
+        client.send("history", history);
+        // Avisar a todos que alguien entró
+        this.broadcastSystemMessage(`${newUser.name} se ha unido a la sala.`);
     }
     onLeave(client, code) {
         console.log(client.sessionId, "left!");
+        const user = this.state.users.get(client.sessionId);
+        if (user) {
+            // Avisar a todos que alguien salió
+            this.broadcastSystemMessage(`${user.name} ha abandonado la sala.`);
+        }
         // Lo borramos del estado
         this.state.users.delete(client.sessionId);
     }
